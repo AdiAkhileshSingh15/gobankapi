@@ -38,7 +38,6 @@ func (s *APIServer) Run() {
 	http.ListenAndServe(s.listenAddr, router)
 }
 
-// 95750770
 func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
 		return fmt.Errorf("method not allowed %s", r.Method)
@@ -53,9 +52,23 @@ func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	if !acc.ValidPassword(req.Password) {
+		return fmt.Errorf("not authenticated")
+	}
+
+	token, err := createJWT(acc)
+	if err != nil {
+		return err
+	}
+
+	resp := LoginResponse{
+		Token:  token,
+		Number: acc.Number,
+	}
+
 	fmt.Printf("%+v/n", acc)
 
-	return WriteJSON(w, http.StatusOK, req)
+	return WriteJSON(w, http.StatusOK, resp)
 }
 func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
 	switch r.Method {
@@ -111,12 +124,6 @@ func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	// tokenString, err := createJWT(account)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// fmt.Println("JWT Token:", tokenString)
 	return WriteJSON(w, http.StatusOK, account)
 
 }
@@ -162,8 +169,6 @@ func createJWT(account *Account) (string, error) {
 func permissionDenied(w http.ResponseWriter) {
 	WriteJSON(w, http.StatusForbidden, apiError{Error: "permission denied"})
 }
-
-// eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50TnVtYmVyIjo2MDA2MjY1NiwiZXhwaXJlc0F0IjoxNTAwMH0.TloH03Nzw1CVJwkQvhaj-L41eyB4pnTBYbm8JUrtBUI
 
 func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
